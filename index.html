@@ -609,15 +609,18 @@
 
     window.addEventListener('load', () => {
       const { device, counter } = getQueryParams();
-
+    
       if (!device) {
         els.countersContainer.innerHTML = '<div class="empty">Abre este dashboard con una URL como ?device=FMPEAK-0001</div>';
         setStatus('Sin device', 'bad');
         return;
       }
-
+    
       els.deviceId.value = device;
       loadCounters().then(() => {
+        if (counter && els.counterSelect && els.counterSelect.querySelector(`option[value="${counter}"]`)) {
+          els.counterSelect.value = counter;
+        }
         loadHistory();
       });
     });
