@@ -419,6 +419,17 @@
   let pollingActivo = false;
 
   /* ── UTILS ── */
+  function formatearTipo(tipo) {
+    if (!tipo) return "--";
+  
+    const t = tipo.toLowerCase();
+  
+    if (t === "fmpro") return "FMPROTECTION";
+    if (t === "tsltp") return "TSTLP";
+  
+    return tipo; // fallback por si agregas nuevos
+  }
+
   function hoy() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -560,7 +571,7 @@
         return `<tr>
           <td>${d.slave_id ?? "--"}</td>
           <td>${d.counter_name ?? "--"}</td>
-          <td>${d.counter_type ?? "--"}</td>
+          <td>${formatearTipo(d.counter_type)}</td>
           <td>${d.counter_value ?? "--"}</td>
           <td><span class="status-pill ${stCls}">${stTxt}</span></td>
           <td>${fmtDatetime(d.visible_at)}</td>
