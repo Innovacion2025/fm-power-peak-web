@@ -216,20 +216,6 @@
   </div>
 
   <div class="wrap">
-    <div class="toolbar" style="grid-template-columns: 1fr;">
-      <div class="field">
-        <label>Dispositivo</label>
-        <div style="padding:10px 12px; background:white; border:1px solid var(--border); border-radius:12px; font-weight:bold;" id="deviceLabel">No seleccionado</div>
-      </div>
-    </div>
-      <div class="field">
-        <label for="deviceId">Device ID</label>
-        <input id="deviceId" placeholder="Ej: FMPEAK-0001" />
-      </div>
-      <button class="btn secondary" id="btnLoadCounters">Cargar contadores</button>
-      <button class="btn primary" id="btnRefresh">Actualizar</button>
-    </div>
-
     <div class="grid">
       <div class="card">
         <h3>Device ID</h3>
@@ -258,7 +244,7 @@
         <h2>Listado de contadores</h2>
         <span class="status-pill warn" id="counterStatus">Sin cargar</span>
       </div>
-      <div id="countersContainer" class="empty">Carga un device_id para ver sus contadores.</div>
+      <div id="countersContainer" class="empty">Cargando contadores...</div>
     </div>
 
     <div class="card" style="margin-bottom: 16px;">
@@ -285,13 +271,13 @@
           <div class="panel-title">
             <h2>Eventos por intervalo</h2>
           </div>
-          <canvas id="eventsChart" height="120"></canvas>
+          <div style="height:280px;"><canvas id="eventsChart"></canvas></div>
         </div>
         <div class="card" style="box-shadow:none; margin:0;">
           <div class="panel-title">
             <h2>Acumulado en el tiempo</h2>
           </div>
-          <canvas id="stepChart" height="120"></canvas>
+          <div style="height:280px;"><canvas id="stepChart"></canvas></div>
         </div>
       </div>
     </div>
@@ -304,14 +290,12 @@
         <div class="empty">Selecciona un contador para ver su histórico.</div>
       </div>
     </div>
-    </div>
   </div>
 
   <script>
     const els = {
       apiBase: { value: "https://fm-power-analyzer-server.onrender.com" },
       deviceId: { value: "" },
-      deviceLabel: document.getElementById('deviceLabel'),
       btnLoadHistory: document.getElementById('btnLoadHistory'),
       countersContainer: document.getElementById('countersContainer'),
       historyContainer: document.getElementById('historyContainer'),
@@ -384,7 +368,6 @@
 
     function renderCharts(rows) {
       destroyCharts();
-
       if (!rows.length) return;
 
       const labels = rows.map(r => r.visible_at ? new Date(r.visible_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-');
@@ -407,9 +390,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { maxRotation: 0, autoSkip: true } },
             y: { beginAtZero: true, title: { display: true, text: 'Eventos' } }
@@ -436,16 +417,13 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { maxRotation: 0, autoSkip: true } },
             y: { beginAtZero: true, title: { display: true, text: 'Acumulado' } }
           }
         }
       });
-    }`;
     }
 
     async function fetchJson(url) {
@@ -462,7 +440,8 @@
       const deviceId = els.deviceId.value.trim();
 
       if (!deviceId) {
-        alert('Ingresa el device_id');
+        els.countersContainer.innerHTML = '<div class="empty">Falta el parámetro ?device= en la URL.</div>';
+        setStatus('Sin device', 'bad');
         return;
       }
 
@@ -566,7 +545,7 @@
       const to = els.dateTo.value;
 
       if (!deviceId || !counterIndex) {
-        alert('Carga contadores y selecciona uno.');
+        els.historyContainer.innerHTML = '<div class="empty">Selecciona un contador válido.</div>';
         return;
       }
 
@@ -624,9 +603,35 @@
       }
     }
 
-    
-    
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        device: params.get('device'),
+        counter: params.get('counter')
+      };
+    }
+
     els.btnLoadHistory.addEventListener('click', loadHistory);
+
+    window.addEventListener('load', () => {
+      const { device, counter } = getQueryParams();
+
+      if (!device) {
+        els.countersContainer.innerHTML = '<div class="empty">Abre este dashboard con una URL como ?device=FMPEAK-0001</div>';
+        setStatus('Sin device', 'bad');
+        return;
+      }
+
+      els.deviceId.value = device;
+      loadCounters().then(() => {
+        if (counter && els.counterSelect.querySelector(`option[value="${counter}"]`)) {
+          els.counterSelect.value = counter;
+        }
+        if (els.counterSelect.value) {
+          loadHistory();
+        }
+      });
+    });
   </script>
 </body>
 </html>
