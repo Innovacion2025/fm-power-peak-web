@@ -281,6 +281,17 @@
   </div>
 
   <script>
+    // ============================================================
+// BLOQUE: LEER PARAMETROS DE URL
+// ============================================================
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        device: params.get("device"),
+        counter: params.get("counter")
+      };
+    }
+    
     const els = {
       apiBase: document.getElementById('apiBase'),
       deviceId: document.getElementById('deviceId'),
@@ -503,6 +514,25 @@
     els.btnLoadCounters.addEventListener('click', loadCounters);
     els.btnRefresh.addEventListener('click', loadCounters);
     els.btnLoadHistory.addEventListener('click', loadHistory);
+
+    // ============================================================
+    // BLOQUE: AUTOLOAD DESDE URL
+    // ============================================================
+    window.addEventListener("load", () => {
+      const { device, counter } = getQueryParams();
+    
+      if (device) {
+        els.deviceId.value = device;
+    
+        // cargar automáticamente contadores
+        loadCounters().then(() => {
+          if (counter) {
+            els.counterSelect.value = counter;
+            loadHistory();
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>
