@@ -454,7 +454,7 @@
     err.innerText = "";
     if (!token) { err.innerText = "Ingrese el token para continuar"; return; }
     try {
-      const url  = `${API_BASE}/api/dashboard-auth?device_id=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(token)}&t=${Date.now()}`;
+      const url  = `${API_BASE}/api/peak/dashboard-auth?device_id=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(token)}&t=${Date.now()}`;
       const res  = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       if (!json || json.ok !== true) { err.innerText = json?.message || "Token incorrecto"; return; }
