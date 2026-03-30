@@ -23,6 +23,7 @@
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
@@ -52,53 +53,6 @@
       max-width: 1300px;
       margin: 18px auto;
       padding: 0 16px 24px;
-    }
-
-    .toolbar {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr auto auto;
-      gap: 12px;
-      align-items: end;
-      margin-bottom: 16px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .field label {
-      font-size: 13px;
-      color: var(--muted);
-      font-weight: bold;
-    }
-
-    .field input, .field select, .btn {
-      height: 42px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      padding: 0 12px;
-      background: white;
-      font-size: 14px;
-    }
-
-    .btn {
-      cursor: pointer;
-      font-weight: bold;
-      min-width: 120px;
-    }
-
-    .btn.primary {
-      background: var(--orange);
-      color: white;
-      border-color: var(--orange);
-    }
-
-    .btn.secondary {
-      background: white;
-      color: var(--green);
-      border-color: var(--green);
     }
 
     .grid {
@@ -141,6 +95,8 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .panel-title h2 {
@@ -158,6 +114,36 @@
     .ok { background: rgba(31,157,85,.12); color: var(--ok); }
     .bad { background: rgba(214,69,65,.12); color: var(--bad); }
     .warn { background: rgba(243,156,18,.12); color: var(--warn); }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: bold;
+    }
+
+    .field input, .btn {
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 0 12px;
+      background: white;
+      font-size: 14px;
+    }
+
+    .btn {
+      cursor: pointer;
+      font-weight: bold;
+      min-width: 140px;
+      background: var(--orange);
+      color: white;
+      border-color: var(--orange);
+    }
 
     table {
       width: 100%;
@@ -179,40 +165,45 @@
       letter-spacing: .04em;
     }
 
-    .muted { color: var(--muted); }
-
-    .history {
-      max-height: 420px;
-      overflow: auto;
-    }
-
     .empty, .loading {
       padding: 24px;
       text-align: center;
       color: var(--muted);
     }
 
+    .chart-box {
+      height: 280px;
+    }
+
     @media (max-width: 980px) {
-      .toolbar { grid-template-columns: 1fr 1fr; }
-      .grid { grid-template-columns: repeat(2, 1fr); }
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .chart-grid {
+        grid-template-columns: 1fr !important;
+      }
     }
 
     @media (max-width: 640px) {
-      .toolbar { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: 1fr; }
-      .topbar h1 { font-size: 20px; }
-      .big { font-size: 24px; }
-    }
-      .grid { grid-template-columns: 1fr; }
-      .topbar h1 { font-size: 20px; }
-      .big { font-size: 24px; }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar h1 {
+        font-size: 20px;
+      }
+
+      .big {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="topbar">
     <h1>FM PEAK Dashboard</h1>
-    <p>Monitoreo de contadores y lecturas históricas</p>
+    <p>Monitoreo de contadores y actividad histórica</p>
   </div>
 
   <div class="wrap">
@@ -222,21 +213,32 @@
         <p class="big" id="kpiDevice">-</p>
         <div class="sub" id="kpiName">Sin datos</div>
       </div>
+
       <div class="card">
         <h3>Contadores</h3>
         <p class="big" id="kpiCounters">0</p>
         <div class="sub">Registrados para este equipo</div>
       </div>
+
       <div class="card">
         <h3>Online</h3>
         <p class="big" id="kpiOnline">0</p>
         <div class="sub">Contadores en línea</div>
       </div>
+
       <div class="card">
         <h3>Offline</h3>
         <p class="big" id="kpiOffline">0</p>
         <div class="sub">Contadores fuera de línea</div>
       </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="panel-title">
+        <h2>Listado de contadores</h2>
+        <span class="status-pill warn" id="counterStatus">Sin cargar</span>
+      </div>
+      <div id="countersContainer" class="loading">Cargando contadores...</div>
     </div>
 
     <div class="card" style="margin-bottom: 16px;">
@@ -251,47 +253,51 @@
             <label for="dateTo">Hasta</label>
             <input id="dateTo" type="date" />
           </div>
-          <button class="btn primary" id="btnLoadHistory">Actualizar análisis</button>
+          <button class="btn" id="btnLoadHistory">Actualizar análisis</button>
         </div>
       </div>
-      <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
+
+      <div class="grid chart-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
         <div class="card" style="box-shadow:none; margin:0;">
           <div class="panel-title">
             <h2>Eventos por intervalo</h2>
           </div>
-          <div style="height:280px;"><canvas id="eventsChart"></canvas></div>
+          <div class="chart-box">
+            <canvas id="eventsChart"></canvas>
+          </div>
         </div>
+
         <div class="card" style="box-shadow:none; margin:0;">
           <div class="panel-title">
-            <h2>Acumulado en el tiempo</h2>
+            <h2>Acumulado total en el tiempo</h2>
           </div>
-          <div style="height:280px;"><canvas id="stepChart"></canvas></div>
+          <div class="chart-box">
+            <canvas id="stepChart"></canvas>
+          </div>
         </div>
       </div>
-    </div>
-
-    
     </div>
   </div>
 
   <script>
+    const API_BASE = "https://fm-power-analyzer-server.onrender.com";
+
     const els = {
-      apiBase: { value: "https://fm-power-analyzer-server.onrender.com" },
-      deviceId: { value: "" },
-      btnLoadHistory: document.getElementById('btnLoadHistory'),
-      countersContainer: document.getElementById('countersContainer'),
-      dateFrom: document.getElementById('dateFrom'),
-      dateTo: document.getElementById('dateTo'),
-      counterStatus: document.getElementById('counterStatus'),
-      kpiDevice: document.getElementById('kpiDevice'),
-      kpiName: document.getElementById('kpiName'),
-      kpiCounters: document.getElementById('kpiCounters'),
-      kpiOnline: document.getElementById('kpiOnline'),
-      kpiOffline: document.getElementById('kpiOffline'),
-      eventsChart: document.getElementById('eventsChart'),
-      stepChart: document.getElementById('stepChart')
+      btnLoadHistory: document.getElementById("btnLoadHistory"),
+      dateFrom: document.getElementById("dateFrom"),
+      dateTo: document.getElementById("dateTo"),
+      countersContainer: document.getElementById("countersContainer"),
+      counterStatus: document.getElementById("counterStatus"),
+      kpiDevice: document.getElementById("kpiDevice"),
+      kpiName: document.getElementById("kpiName"),
+      kpiCounters: document.getElementById("kpiCounters"),
+      kpiOnline: document.getElementById("kpiOnline"),
+      kpiOffline: document.getElementById("kpiOffline"),
+      eventsChart: document.getElementById("eventsChart"),
+      stepChart: document.getElementById("stepChart")
     };
 
+    let deviceId = "";
     let countersCache = [];
     let eventsChartInstance = null;
     let stepChartInstance = null;
@@ -299,8 +305,8 @@
     function todayString() {
       const d = new Date();
       const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}`;
     }
 
@@ -308,17 +314,33 @@
     els.dateTo.value = todayString();
 
     function escapeHtml(text) {
-      return String(text ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     function setStatus(text, cls) {
       els.counterStatus.textContent = text;
       els.counterStatus.className = `status-pill ${cls}`;
+    }
+
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        device: params.get("device")
+      };
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.detail || data.error || `HTTP ${res.status}`);
+      }
+      return data;
     }
 
     function destroyCharts() {
@@ -332,18 +354,12 @@
       }
     }
 
-    function buildIntervalData(rows) {
-      const deltas = [];
-      for (let i = 0; i < rows.length; i++) {
-        const current = Number(rows[i].counter_value ?? 0);
-        const previous = i > 0 ? Number(rows[i - 1].counter_value ?? 0) : current;
-        const delta = i === 0 ? 0 : Math.max(0, current - previous);
-        deltas.push({
-          label: rows[i].visible_at ? new Date(rows[i].visible_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `P${i + 1}`,
-          delta
-        });
-      }
-      return deltas;
+    function formatTimeLabel(value) {
+      if (!value) return "-";
+      return new Date(value).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
     }
 
     function groupRowsAcrossCounters(historyByCounter) {
@@ -358,7 +374,7 @@
 
           if (!timeline.has(key)) {
             timeline.set(key, {
-              label: row.visible_at ? new Date(row.visible_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `P${idx + 1}`,
+              label: formatTimeLabel(row.visible_at || row.created_at),
               totalDelta: 0,
               totalAccumulated: 0
             });
@@ -370,26 +386,29 @@
         });
       });
 
-      return Array.from(timeline.values());
+      return Array.from(timeline.entries())
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+        .map(entry => entry[1]);
     }
 
     function renderCharts(groupedRows) {
       destroyCharts();
+
       if (!groupedRows.length) return;
 
       const labels = groupedRows.map(r => r.label);
-      const accumulated = groupedRows.map(r => Number(r.totalAccumulated ?? 0));
       const intervalData = groupedRows.map(r => Number(r.totalDelta ?? 0));
+      const accumulated = groupedRows.map(r => Number(r.totalAccumulated ?? 0));
 
       eventsChartInstance = new Chart(els.eventsChart, {
-        type: 'bar',
+        type: "bar",
         data: {
           labels,
           datasets: [{
-            label: 'Eventos por intervalo',
+            label: "Eventos por intervalo",
             data: intervalData,
-            backgroundColor: 'rgba(236, 99, 31, 0.75)',
-            borderColor: 'rgba(236, 99, 31, 1)',
+            backgroundColor: "rgba(236, 99, 31, 0.75)",
+            borderColor: "rgba(236, 99, 31, 1)",
             borderWidth: 1,
             borderRadius: 6
           }]
@@ -397,23 +416,33 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false }
+          },
           scales: {
-            x: { ticks: { maxRotation: 0, autoSkip: true } },
-            y: { beginAtZero: true, title: { display: true, text: 'Eventos' } }
+            x: {
+              ticks: { maxRotation: 0, autoSkip: true }
+            },
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Eventos"
+              }
+            }
           }
         }
       });
 
       stepChartInstance = new Chart(els.stepChart, {
-        type: 'line',
+        type: "line",
         data: {
           labels,
           datasets: [{
-            label: 'Acumulado',
+            label: "Acumulado total",
             data: accumulated,
-            borderColor: 'rgba(65, 84, 71, 1)',
-            backgroundColor: 'rgba(65, 84, 71, 0.12)',
+            borderColor: "rgba(65, 84, 71, 1)",
+            backgroundColor: "rgba(65, 84, 71, 0.12)",
             borderWidth: 3,
             fill: true,
             stepped: true,
@@ -424,79 +453,76 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false }
+          },
           scales: {
-            x: { ticks: { maxRotation: 0, autoSkip: true } },
-            y: { beginAtZero: true, title: { display: true, text: 'Acumulado total' } }
+            x: {
+              ticks: { maxRotation: 0, autoSkip: true }
+            },
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Acumulado total"
+              }
+            }
           }
         }
       });
     }
 
-    async function fetchJson(url) {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!res.ok || data.ok === false) {
-        throw new Error(data.detail || data.error || `HTTP ${res.status}`);
-      }
-      return data;
-    }
-
     async function loadCounters() {
-      const base = els.apiBase.value.trim().replace(/\/$/, '');
-      const deviceId = els.deviceId.value.trim();
-
       if (!deviceId) {
         els.countersContainer.innerHTML = '<div class="empty">Falta el parámetro ?device= en la URL.</div>';
-        setStatus('Sin device', 'bad');
-        return;
+        setStatus("Sin device", "bad");
+        return [];
       }
 
       els.countersContainer.innerHTML = '<div class="loading">Cargando contadores...</div>';
-      setStatus('Cargando', 'warn');
+      setStatus("Cargando", "warn");
 
       try {
-        const data = await fetchJson(`${base}/api/peak/counters/${encodeURIComponent(deviceId)}`);
+        const data = await fetchJson(`${API_BASE}/api/peak/counters/${encodeURIComponent(deviceId)}`);
         countersCache = data.data || [];
 
         els.kpiDevice.textContent = deviceId;
         els.kpiCounters.textContent = countersCache.length;
 
         if (!countersCache.length) {
-          els.kpiName.textContent = 'Sin contadores registrados';
-          els.kpiOnline.textContent = '0';
-          els.kpiOffline.textContent = '0';
+          els.kpiName.textContent = "Sin contadores registrados";
+          els.kpiOnline.textContent = "0";
+          els.kpiOffline.textContent = "0";
           els.countersContainer.innerHTML = '<div class="empty">No hay contadores registrados.</div>';
-          els.counterSelect.innerHTML = '';
-          setStatus('Vacío', 'warn');
-          return;
+          setStatus("Vacío", "warn");
+          return [];
         }
 
-        els.counterSelect.innerHTML = countersCache.map(c =>
-          `<option value="${c.counter_index}">${escapeHtml(c.counter_name || 'Contador ' + c.counter_index)} (#${c.counter_index})</option>`
-        ).join('');
+        const latestRows = await Promise.all(
+          countersCache.map(async c => {
+            try {
+              const latest = await fetchJson(
+                `${API_BASE}/api/peak/device/${encodeURIComponent(deviceId)}?counter_index=${encodeURIComponent(c.counter_index)}`
+              );
+              return latest.data;
+            } catch (err) {
+              return {
+                counter_index: c.counter_index,
+                counter_name: c.counter_name,
+                counter_type: c.counter_type,
+                slave_id: c.slave_id,
+                online: null,
+                counter_value: null,
+                fail_count: null,
+                visible_at: null
+              };
+            }
+          })
+        );
 
-        const rows = await Promise.all(countersCache.map(async c => {
-          try {
-            const latest = await fetchJson(`${base}/api/peak/device/${encodeURIComponent(deviceId)}?counter_index=${encodeURIComponent(c.counter_index)}`);
-            return latest.data;
-          } catch (err) {
-            return {
-              counter_index: c.counter_index,
-              counter_name: c.counter_name,
-              counter_type: c.counter_type,
-              slave_id: c.slave_id,
-              online: null,
-              counter_value: null,
-              fail_count: null,
-              visible_at: null
-            };
-          }
-        }));
-
-        const online = rows.filter(r => r.online === true).length;
-        const offline = rows.filter(r => r.online === false).length;
-        const deviceName = rows.find(r => r.device_name)?.device_name || '-';
+        const online = latestRows.filter(r => r.online === true).length;
+        const offline = latestRows.filter(r => r.online === false).length;
+        const deviceName = latestRows.find(r => r.device_name)?.device_name || "-";
 
         els.kpiName.textContent = deviceName;
         els.kpiOnline.textContent = online;
@@ -517,55 +543,58 @@
               </tr>
             </thead>
             <tbody>
-              ${rows.map(r => `
+              ${latestRows.map(r => `
                 <tr>
                   <td>${escapeHtml(r.counter_index)}</td>
-                  <td>${escapeHtml(r.slave_id ?? '-')}</td>
-                  <td>${escapeHtml(r.counter_name ?? '-')}</td>
-                  <td>${escapeHtml(r.counter_type ?? '-')}</td>
-                  <td>${escapeHtml(r.counter_value ?? '-')}</td>
+                  <td>${escapeHtml(r.slave_id ?? "-")}</td>
+                  <td>${escapeHtml(r.counter_name ?? "-")}</td>
+                  <td>${escapeHtml(r.counter_type ?? "-")}</td>
+                  <td>${escapeHtml(r.counter_value ?? "-")}</td>
                   <td>
-                    <span class="status-pill ${r.online === true ? 'ok' : r.online === false ? 'bad' : 'warn'}">
-                      ${r.online === true ? 'Online' : r.online === false ? 'Offline' : 'Sin dato'}
+                    <span class="status-pill ${r.online === true ? "ok" : r.online === false ? "bad" : "warn"}">
+                      ${r.online === true ? "Online" : r.online === false ? "Offline" : "Sin dato"}
                     </span>
                   </td>
-                  <td>${escapeHtml(r.fail_count ?? '-')}</td>
-                  <td>${escapeHtml(r.visible_at ? new Date(r.visible_at).toLocaleString() : '-')}</td>
+                  <td>${escapeHtml(r.fail_count ?? "-")}</td>
+                  <td>${escapeHtml(r.visible_at ? new Date(r.visible_at).toLocaleString() : "-")}</td>
                 </tr>
-              `).join('')}
+              `).join("")}
             </tbody>
           </table>
         `;
 
-        setStatus('Cargado', 'ok');
+        setStatus("Cargado", "ok");
+        return latestRows;
       } catch (err) {
         els.countersContainer.innerHTML = `<div class="empty">Error: ${escapeHtml(err.message)}</div>`;
-        setStatus('Error', 'bad');
+        setStatus("Error", "bad");
+        return [];
       }
     }
 
     async function loadHistory() {
-      const base = els.apiBase.value.trim().replace(/\/$/, '');
-      const deviceId = els.deviceId.value.trim();
-      const from = els.dateFrom.value;
-      const to = els.dateTo.value;
-
       if (!deviceId || !countersCache.length) {
         destroyCharts();
         return;
       }
 
       try {
-        const latestRows = await Promise.all(countersCache.map(async c => {
-          try {
-            const latest = await fetchJson(`${base}/api/peak/device/${encodeURIComponent(deviceId)}?counter_index=${encodeURIComponent(c.counter_index)}`);
-            return latest.data;
-          } catch (err) {
-            return null;
-          }
-        }));
+        const latestRows = await Promise.all(
+          countersCache.map(async c => {
+            try {
+              const latest = await fetchJson(
+                `${API_BASE}/api/peak/device/${encodeURIComponent(deviceId)}?counter_index=${encodeURIComponent(c.counter_index)}`
+              );
+              return latest.data;
+            } catch (err) {
+              return null;
+            }
+          })
+        );
 
-        const activeCounters = latestRows.filter(r => r && r.online === true).map(r => r.counter_index);
+        const activeCounters = latestRows
+          .filter(r => r && r.online === true)
+          .map(r => r.counter_index);
 
         if (!activeCounters.length) {
           destroyCharts();
@@ -573,16 +602,20 @@
         }
 
         const historyByCounter = {};
-        await Promise.all(activeCounters.map(async counterIndex => {
-          const qs = new URLSearchParams({
-            device_id: deviceId,
-            counter_index: String(counterIndex),
-            from,
-            to
-          });
-          const data = await fetchJson(`${base}/api/peak/history?${qs.toString()}`);
-          historyByCounter[counterIndex] = data.data || [];
-        }));
+
+        await Promise.all(
+          activeCounters.map(async counterIndex => {
+            const qs = new URLSearchParams({
+              device_id: deviceId,
+              counter_index: String(counterIndex),
+              from: els.dateFrom.value,
+              to: els.dateTo.value
+            });
+
+            const data = await fetchJson(`${API_BASE}/api/peak/history?${qs.toString()}`);
+            historyByCounter[counterIndex] = data.data || [];
+          })
+        );
 
         const grouped = groupRowsAcrossCounters(historyByCounter);
         renderCharts(grouped);
@@ -591,39 +624,29 @@
       }
     }
 
-    function getQueryParams() {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        device: params.get('device'),
-        counter: params.get('counter')
-      };
-    }
+    async function bootstrap() {
+      const params = getQueryParams();
+      deviceId = params.device || "";
 
-    els.btnLoadHistory.addEventListener('click', loadHistory);
-
-    setInterval(() => {
-      if (els.deviceId.value && countersCache.length) {
-        loadCounters().then(() => loadHistory());
-      }
-    }, 30000);
-
-    window.addEventListener('load', () => {
-      const { device, counter } = getQueryParams();
-    
-      if (!device) {
-        els.countersContainer.innerHTML = '<div class="empty">Abre este dashboard con una URL como ?device=FMPEAK-0001</div>';
-        setStatus('Sin device', 'bad');
+      if (!deviceId) {
+        els.countersContainer.innerHTML = '<div class="empty">Abre este dashboard con una URL como ?device=FMPP-0001</div>';
+        setStatus("Sin device", "bad");
         return;
       }
-    
-      els.deviceId.value = device;
-      loadCounters().then(() => {
-        if (counter && els.counterSelect && els.counterSelect.querySelector(`option[value="${counter}"]`)) {
-          els.counterSelect.value = counter;
-        }
-        loadHistory();
-      });
-    });
+
+      await loadCounters();
+      await loadHistory();
+    }
+
+    els.btnLoadHistory.addEventListener("click", loadHistory);
+
+    setInterval(async () => {
+      if (!deviceId) return;
+      await loadCounters();
+      await loadHistory();
+    }, 30000);
+
+    window.addEventListener("load", bootstrap);
   </script>
 </body>
 </html>
