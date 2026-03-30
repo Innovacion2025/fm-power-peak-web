@@ -492,25 +492,37 @@
     document.getElementById("heroDevice").innerText = deviceId;
     document.getElementById("kpiDevice").innerText  = deviceId;
 
-    showLoading();
-    await cargarContadores();
-    await cargarHistorico(false);
-    hideLoading();
-
-    if (!window._peakInterval) {
-      window._peakInterval = setInterval(async () => {
-        if (!dashboardOk || pollingActivo) return;
-        pollingActivo = true;
-        try {
-          await cargarContadores();
-          const hoyStr = hoy();
-          if (document.getElementById("dateTo").value === hoyStr) {
-            await cargarHistorico(false);
+    async function iniciarDashboard() {
+      const h = hoy();
+      document.getElementById("dateFrom").value = h;
+      document.getElementById("dateTo").value   = h;
+      document.getElementById("csvFrom").value  = h;
+      document.getElementById("csvTo").value    = h;
+    
+      document.getElementById("pillDevice").innerText = deviceId;
+      document.getElementById("heroDevice").innerText = deviceId;
+    
+      showLoading();
+      await cargarContadores();
+      await cargarHistorico(false);
+      hideLoading();
+    
+      if (!window._peakInterval) {
+        window._peakInterval = setInterval(async () => {
+          if (!dashboardOk || pollingActivo) return;
+          pollingActivo = true;
+          try {
+            await cargarContadores();
+            const hoyStr = hoy();
+            if (document.getElementById("dateTo").value === hoyStr) {
+              await cargarHistorico(false);
+            }
+          } finally {
+            pollingActivo = false;
           }
-        } finally { pollingActivo = false; }
-      }, 5000);
+        }, 5000);
+      }
     }
-  }
 
   /* ── CONTADORES ── */
   async function cargarContadores() {
@@ -534,14 +546,11 @@
       const offline = latest.filter(d => d?.online === false).length;
       const nombre  = latest.find(d => d?.device_name)?.device_name || "--";
 
-      /* KPIs */
-      document.getElementById("pillTotal").innerText  = countersCache.length;
-      document.getElementById("pillOnline").innerText = online;
-      document.getElementById("pillOffline").innerText= offline;
-      document.getElementById("heroName").innerText   = nombre;
-      document.getElementById("kpiTotal").innerText   = countersCache.length;
-      document.getElementById("kpiOnline").innerText  = online;
-      document.getElementById("kpiOffline").innerText = offline;
+      /* HERO */
+      document.getElementById("pillTotal").innerText   = countersCache.length;
+      document.getElementById("pillOnline").innerText  = online;
+      document.getElementById("pillOffline").innerText = offline;
+      document.getElementById("heroName").innerText    = nombre;
 
       /* Tag status */
       const tag = document.getElementById("tagStatus");
