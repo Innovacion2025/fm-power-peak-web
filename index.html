@@ -211,11 +211,12 @@
   </div>
 
   <div class="wrap">
-    <div class="toolbar">
+    <div class="toolbar" style="grid-template-columns: 1fr;">
       <div class="field">
-        <label for="apiBase">Backend URL</label>
-        <input id="apiBase" value="https://fm-power-analyzer-server.onrender.com" />
+        <label>Dispositivo</label>
+        <div style="padding:10px 12px; background:white; border:1px solid var(--border); border-radius:12px; font-weight:bold;" id="deviceLabel">No seleccionado</div>
       </div>
+    </div>
       <div class="field">
         <label for="deviceId">Device ID</label>
         <input id="deviceId" placeholder="Ej: FMPEAK-0001" />
@@ -281,22 +282,10 @@
   </div>
 
   <script>
-    // ============================================================
-// BLOQUE: LEER PARAMETROS DE URL
-// ============================================================
-    function getQueryParams() {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        device: params.get("device"),
-        counter: params.get("counter")
-      };
-    }
-    
     const els = {
-      apiBase: document.getElementById('apiBase'),
-      deviceId: document.getElementById('deviceId'),
-      btnLoadCounters: document.getElementById('btnLoadCounters'),
-      btnRefresh: document.getElementById('btnRefresh'),
+      apiBase: { value: "https://fm-power-analyzer-server.onrender.com" },
+      deviceId: { value: "" },
+      deviceLabel: document.getElementById('deviceLabel'),
       btnLoadHistory: document.getElementById('btnLoadHistory'),
       countersContainer: document.getElementById('countersContainer'),
       historyContainer: document.getElementById('historyContainer'),
@@ -511,28 +500,9 @@
       }
     }
 
-    els.btnLoadCounters.addEventListener('click', loadCounters);
-    els.btnRefresh.addEventListener('click', loadCounters);
+    
+    
     els.btnLoadHistory.addEventListener('click', loadHistory);
-
-    // ============================================================
-    // BLOQUE: AUTOLOAD DESDE URL
-    // ============================================================
-    window.addEventListener("load", () => {
-      const { device, counter } = getQueryParams();
-    
-      if (device) {
-        els.deviceId.value = device;
-    
-        // cargar automáticamente contadores
-        loadCounters().then(() => {
-          if (counter) {
-            els.counterSelect.value = counter;
-            loadHistory();
-          }
-        });
-      }
-    });
   </script>
 </body>
 </html>
