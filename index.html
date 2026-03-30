@@ -341,17 +341,6 @@
     </div>
   </div>
 
-  <!-- KPIs -->
-  <section>
-    <div class="section-head"><div class="section-head-bar"></div><div><h2>Resumen del gateway</h2><p>Estado general en tiempo real</p></div></div>
-    <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">Device ID</div><div class="kpi-value" id="kpiDevice" style="font-size:15px">--</div><div class="kpi-sub">Gateway principal</div></div>
-      <div class="kpi-card"><div class="kpi-label">Contadores totales</div><div class="kpi-value" id="kpiTotal">--</div><div class="kpi-sub">Registrados</div></div>
-      <div class="kpi-card"><div class="kpi-label">Online</div><div class="kpi-value" id="kpiOnline" style="color:var(--green)">--</div><div class="kpi-sub">En línea ahora</div></div>
-      <div class="kpi-card"><div class="kpi-label">Offline</div><div class="kpi-value" id="kpiOffline" style="color:var(--red)">--</div><div class="kpi-sub">Fuera de línea</div></div>
-    </div>
-  </section>
-
   <!-- TABLA CONTADORES -->
   <section>
     <div class="section-head"><div class="section-head-bar"></div><div><h2>Listado de contadores</h2><p>Estado actual de cada contador registrado</p></div></div>
@@ -383,9 +372,7 @@
   <!-- GRÁFICAS -->
   <section>
     <div class="section-head"><div class="section-head-bar"></div><div><h2>Actividad histórica</h2><p>Eventos por intervalo y acumulado total por contador activo</p></div></div>
-    <div class="charts-col" id="chartsCol">
-      <div style="text-align:center;padding:30px;color:var(--text-faint);font-size:12px">Cargando gráficas…</div>
-    </div>
+    <div class="charts-col" id="chartsCol"></div>
   </section>
 
   <div class="error-bar" id="errorBar"></div>
@@ -480,20 +467,27 @@
     const t = sessionStorage.getItem(`fm_peak_token_${deviceId}`);
     if (!t) return false;
     try {
-      const url  = `${API_BASE}/api/dashboard-auth?device_id=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(t)}&t=${Date.now()}`;
+      const url  = `${API_BASE}/api/peak/dashboard-auth?device_id=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(t)}&t=${Date.now()}`;
       const res  = await fetch(url, { cache: "no-store" });
       const json = await res.json();
-      if (!json || json.ok !== true) { sessionStorage.removeItem(`fm_peak_token_${deviceId}`); return false; }
-      dashboardOk = true; tokenOk = t;
+      if (!json || json.ok !== true) {
+        sessionStorage.removeItem(`fm_peak_token_${deviceId}`);
+        return false;
+      }
+      dashboardOk = true;
+      tokenOk = t;
       ocultarAuth();
       return true;
-    } catch(e) { sessionStorage.removeItem(`fm_peak_token_${deviceId}`); return false; }
+    } catch(e) {
+      sessionStorage.removeItem(`fm_peak_token_${deviceId}`);
+      return false;
+    }
   }
 
   document.getElementById("tokenInput").addEventListener("keydown", e => { if (e.key === "Enter") validarAcceso(); });
 
   /* ── INIT ── */
-  async function iniciarDashboard() {
+   async function iniciarDashboard() {
     const h = hoy();
     document.getElementById("dateFrom").value = h;
     document.getElementById("dateTo").value   = h;
@@ -502,7 +496,6 @@
 
     document.getElementById("pillDevice").innerText = deviceId;
     document.getElementById("heroDevice").innerText = deviceId;
-    document.getElementById("kpiDevice").innerText  = deviceId;
 
     showLoading();
     await cargarContadores();
@@ -519,7 +512,9 @@
           if (document.getElementById("dateTo").value === hoyStr) {
             await cargarHistorico(false);
           }
-        } finally { pollingActivo = false; }
+        } finally {
+          pollingActivo = false;
+        }
       }, 5000);
     }
   }
@@ -546,14 +541,11 @@
       const offline = latest.filter(d => d?.online === false).length;
       const nombre  = latest.find(d => d?.device_name)?.device_name || "--";
 
-      /* KPIs */
-      document.getElementById("pillTotal").innerText  = countersCache.length;
-      document.getElementById("pillOnline").innerText = online;
-      document.getElementById("pillOffline").innerText= offline;
-      document.getElementById("heroName").innerText   = nombre;
-      document.getElementById("kpiTotal").innerText   = countersCache.length;
-      document.getElementById("kpiOnline").innerText  = online;
-      document.getElementById("kpiOffline").innerText = offline;
+      /* HERO */
+      document.getElementById("pillTotal").innerText   = countersCache.length;
+      document.getElementById("pillOnline").innerText  = online;
+      document.getElementById("pillOffline").innerText = offline;
+      document.getElementById("heroName").innerText    = nombre;;
 
       /* Tag status */
       const tag = document.getElementById("tagStatus");
