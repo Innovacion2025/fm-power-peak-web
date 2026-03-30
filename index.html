@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FM PEAK Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --green: #415447;
@@ -202,6 +203,10 @@
       .topbar h1 { font-size: 20px; }
       .big { font-size: 24px; }
     }
+      .grid { grid-template-columns: 1fr; }
+      .topbar h1 { font-size: 20px; }
+      .big { font-size: 24px; }
+    }
   </style>
 </head>
 <body>
@@ -211,11 +216,12 @@
   </div>
 
   <div class="wrap">
-    <div class="toolbar">
+    <div class="toolbar" style="grid-template-columns: 1fr;">
       <div class="field">
-        <label for="apiBase">Backend URL</label>
-        <input id="apiBase" value="https://fm-power-analyzer-server.onrender.com" />
+        <label>Dispositivo</label>
+        <div style="padding:10px 12px; background:white; border:1px solid var(--border); border-radius:12px; font-weight:bold;" id="deviceLabel">No seleccionado</div>
       </div>
+    </div>
       <div class="field">
         <label for="deviceId">Device ID</label>
         <input id="deviceId" placeholder="Ej: FMPEAK-0001" />
@@ -255,9 +261,9 @@
       <div id="countersContainer" class="empty">Carga un device_id para ver sus contadores.</div>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-bottom: 16px;">
       <div class="panel-title">
-        <h2>Histórico del contador</h2>
+        <h2>Actividad del contador</h2>
         <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
           <div class="field">
             <label for="counterSelect">Contador</label>
@@ -271,32 +277,41 @@
             <label for="dateTo">Hasta</label>
             <input id="dateTo" type="date" />
           </div>
-          <button class="btn primary" id="btnLoadHistory">Ver histórico</button>
+          <button class="btn primary" id="btnLoadHistory">Ver análisis</button>
         </div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
+        <div class="card" style="box-shadow:none; margin:0;">
+          <div class="panel-title">
+            <h2>Eventos por intervalo</h2>
+          </div>
+          <canvas id="eventsChart" height="120"></canvas>
+        </div>
+        <div class="card" style="box-shadow:none; margin:0;">
+          <div class="panel-title">
+            <h2>Acumulado en el tiempo</h2>
+          </div>
+          <canvas id="stepChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="panel-title">
+        <h2>Detalle histórico del contador</h2>
       </div>
       <div class="history" id="historyContainer">
         <div class="empty">Selecciona un contador para ver su histórico.</div>
       </div>
     </div>
+    </div>
   </div>
 
   <script>
-    // ============================================================
-// BLOQUE: LEER PARAMETROS DE URL
-// ============================================================
-    function getQueryParams() {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        device: params.get("device"),
-        counter: params.get("counter")
-      };
-    }
-    
     const els = {
-      apiBase: document.getElementById('apiBase'),
-      deviceId: document.getElementById('deviceId'),
-      btnLoadCounters: document.getElementById('btnLoadCounters'),
-      btnRefresh: document.getElementById('btnRefresh'),
+      apiBase: { value: "https://fm-power-analyzer-server.onrender.com" },
+      deviceId: { value: "" },
+      deviceLabel: document.getElementById('deviceLabel'),
       btnLoadHistory: document.getElementById('btnLoadHistory'),
       countersContainer: document.getElementById('countersContainer'),
       historyContainer: document.getElementById('historyContainer'),
@@ -308,10 +323,14 @@
       kpiName: document.getElementById('kpiName'),
       kpiCounters: document.getElementById('kpiCounters'),
       kpiOnline: document.getElementById('kpiOnline'),
-      kpiOffline: document.getElementById('kpiOffline')
+      kpiOffline: document.getElementById('kpiOffline'),
+      eventsChart: document.getElementById('eventsChart'),
+      stepChart: document.getElementById('stepChart')
     };
 
     let countersCache = [];
+    let eventsChartInstance = null;
+    let stepChartInstance = null;
 
     function todayString() {
       const d = new Date();
@@ -336,6 +355,97 @@
     function setStatus(text, cls) {
       els.counterStatus.textContent = text;
       els.counterStatus.className = `status-pill ${cls}`;
+    }
+
+    function destroyCharts() {
+      if (eventsChartInstance) {
+        eventsChartInstance.destroy();
+        eventsChartInstance = null;
+      }
+      if (stepChartInstance) {
+        stepChartInstance.destroy();
+        stepChartInstance = null;
+      }
+    }
+
+    function buildIntervalData(rows) {
+      const deltas = [];
+      for (let i = 0; i < rows.length; i++) {
+        const current = Number(rows[i].counter_value ?? 0);
+        const previous = i > 0 ? Number(rows[i - 1].counter_value ?? 0) : current;
+        const delta = i === 0 ? 0 : Math.max(0, current - previous);
+        deltas.push({
+          label: rows[i].visible_at ? new Date(rows[i].visible_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `P${i + 1}`,
+          delta
+        });
+      }
+      return deltas;
+    }
+
+    function renderCharts(rows) {
+      destroyCharts();
+
+      if (!rows.length) return;
+
+      const labels = rows.map(r => r.visible_at ? new Date(r.visible_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-');
+      const accumulated = rows.map(r => Number(r.counter_value ?? 0));
+      const intervalData = buildIntervalData(rows);
+
+      eventsChartInstance = new Chart(els.eventsChart, {
+        type: 'bar',
+        data: {
+          labels: intervalData.map(d => d.label),
+          datasets: [{
+            label: 'Eventos por intervalo',
+            data: intervalData.map(d => d.delta),
+            backgroundColor: 'rgba(236, 99, 31, 0.75)',
+            borderColor: 'rgba(236, 99, 31, 1)',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { ticks: { maxRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, title: { display: true, text: 'Eventos' } }
+          }
+        }
+      });
+
+      stepChartInstance = new Chart(els.stepChart, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Acumulado',
+            data: accumulated,
+            borderColor: 'rgba(65, 84, 71, 1)',
+            backgroundColor: 'rgba(65, 84, 71, 0.12)',
+            borderWidth: 3,
+            fill: true,
+            stepped: true,
+            pointRadius: 2,
+            tension: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { ticks: { maxRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, title: { display: true, text: 'Acumulado' } }
+          }
+        }
+      });
+    }`;
     }
 
     async function fetchJson(url) {
@@ -474,9 +584,12 @@
         const rows = data.data || [];
 
         if (!rows.length) {
+          destroyCharts();
           els.historyContainer.innerHTML = '<div class="empty">No hay histórico para ese rango.</div>';
           return;
         }
+
+        renderCharts(rows);
 
         els.historyContainer.innerHTML = `
           <table>
@@ -511,28 +624,9 @@
       }
     }
 
-    els.btnLoadCounters.addEventListener('click', loadCounters);
-    els.btnRefresh.addEventListener('click', loadCounters);
+    
+    
     els.btnLoadHistory.addEventListener('click', loadHistory);
-
-    // ============================================================
-    // BLOQUE: AUTOLOAD DESDE URL
-    // ============================================================
-    window.addEventListener("load", () => {
-      const { device, counter } = getQueryParams();
-    
-      if (device) {
-        els.deviceId.value = device;
-    
-        // cargar automáticamente contadores
-        loadCounters().then(() => {
-          if (counter) {
-            els.counterSelect.value = counter;
-            loadHistory();
-          }
-        });
-      }
-    });
   </script>
 </body>
 </html>
