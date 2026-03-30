@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FM PEAK Dashboard</title>
+  <style>
+    :root {
+      --green: #415447;
+      --orange: #EC631F;
+      --white: #FFFFFF;
+      --gray: #E6E7EA;
+      --bg: #f4f6f5;
+      --panel: #ffffff;
+      --text: #243026;
+      --muted: #6b7280;
+      --border: #dde3df;
+      --shadow: 0 10px 24px rgba(0,0,0,.08);
+      --ok: #1f9d55;
+      --bad: #d64541;
+      --warn: #f39c12;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .topbar {
+      background: linear-gradient(135deg, var(--green), #2f3d33);
+      color: white;
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      opacity: .9;
+      font-size: 14px;
+    }
+
+    .wrap {
+      max-width: 1300px;
+      margin: 18px auto;
+      padding: 0 16px 24px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr auto auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: bold;
+    }
+
+    .field input, .field select, .btn {
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 0 12px;
+      background: white;
+      font-size: 14px;
+    }
+
+    .btn {
+      cursor: pointer;
+      font-weight: bold;
+      min-width: 120px;
+    }
+
+    .btn.primary {
+      background: var(--orange);
+      color: white;
+      border-color: var(--orange);
+    }
+
+    .btn.secondary {
+      background: white;
+      color: var(--green);
+      border-color: var(--green);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .big {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .status-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .ok { background: rgba(31,157,85,.12); color: var(--ok); }
+    .bad { background: rgba(214,69,65,.12); color: var(--bad); }
+    .warn { background: rgba(243,156,18,.12); color: var(--warn); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .muted { color: var(--muted); }
+
+    .history {
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .empty, .loading {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 980px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      .toolbar { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .topbar h1 { font-size: 20px; }
+      .big { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>FM PEAK Dashboard</h1>
+    <p>Monitoreo de contadores y lecturas históricas</p>
+  </div>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="field">
+        <label for="apiBase">Backend URL</label>
+        <input id="apiBase" value="https://fm-power-analyzer-server.onrender.com" />
+      </div>
+      <div class="field">
+        <label for="deviceId">Device ID</label>
+        <input id="deviceId" placeholder="Ej: FMPEAK-0001" />
+      </div>
+      <button class="btn secondary" id="btnLoadCounters">Cargar contadores</button>
+      <button class="btn primary" id="btnRefresh">Actualizar</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Device ID</h3>
+        <p class="big" id="kpiDevice">-</p>
+        <div class="sub" id="kpiName">Sin datos</div>
+      </div>
+      <div class="card">
+        <h3>Contadores</h3>
+        <p class="big" id="kpiCounters">0</p>
+        <div class="sub">Registrados para este equipo</div>
+      </div>
+      <div class="card">
+        <h3>Online</h3>
+        <p class="big" id="kpiOnline">0</p>
+        <div class="sub">Contadores en línea</div>
+      </div>
+      <div class="card">
+        <h3>Offline</h3>
+        <p class="big" id="kpiOffline">0</p>
+        <div class="sub">Contadores fuera de línea</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="panel-title">
+        <h2>Listado de contadores</h2>
+        <span class="status-pill warn" id="counterStatus">Sin cargar</span>
+      </div>
+      <div id="countersContainer" class="empty">Carga un device_id para ver sus contadores.</div>
+    </div>
+
+    <div class="card">
+      <div class="panel-title">
+        <h2>Histórico del contador</h2>
+        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+          <div class="field">
+            <label for="counterSelect">Contador</label>
+            <select id="counterSelect"></select>
+          </div>
+          <div class="field">
+            <label for="dateFrom">Desde</label>
+            <input id="dateFrom" type="date" />
+          </div>
+          <div class="field">
+            <label for="dateTo">Hasta</label>
+            <input id="dateTo" type="date" />
+          </div>
+          <button class="btn primary" id="btnLoadHistory">Ver histórico</button>
+        </div>
+      </div>
+      <div class="history" id="historyContainer">
+        <div class="empty">Selecciona un contador para ver su histórico.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      apiBase: document.getElementById('apiBase'),
+      deviceId: document.getElementById('deviceId'),
+      btnLoadCounters: document.getElementById('btnLoadCounters'),
+      btnRefresh: document.getElementById('btnRefresh'),
+      btnLoadHistory: document.getElementById('btnLoadHistory'),
+      countersContainer: document.getElementById('countersContainer'),
+      historyContainer: document.getElementById('historyContainer'),
+      counterSelect: document.getElementById('counterSelect'),
+      dateFrom: document.getElementById('dateFrom'),
+      dateTo: document.getElementById('dateTo'),
+      counterStatus: document.getElementById('counterStatus'),
+      kpiDevice: document.getElementById('kpiDevice'),
+      kpiName: document.getElementById('kpiName'),
+      kpiCounters: document.getElementById('kpiCounters'),
+      kpiOnline: document.getElementById('kpiOnline'),
+      kpiOffline: document.getElementById('kpiOffline')
+    };
+
+    let countersCache = [];
+
+    function todayString() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    els.dateFrom.value = todayString();
+    els.dateTo.value = todayString();
+
+    function escapeHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function setStatus(text, cls) {
+      els.counterStatus.textContent = text;
+      els.counterStatus.className = `status-pill ${cls}`;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.detail || data.error || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    async function loadCounters() {
+      const base = els.apiBase.value.trim().replace(/\/$/, '');
+      const deviceId = els.deviceId.value.trim();
+
+      if (!deviceId) {
+        alert('Ingresa el device_id');
+        return;
+      }
+
+      els.countersContainer.innerHTML = '<div class="loading">Cargando contadores...</div>';
+      setStatus('Cargando', 'warn');
+
+      try {
+        const data = await fetchJson(`${base}/api/peak/counters/${encodeURIComponent(deviceId)}`);
+        countersCache = data.data || [];
+
+        els.kpiDevice.textContent = deviceId;
+        els.kpiCounters.textContent = countersCache.length;
+
+        if (!countersCache.length) {
+          els.kpiName.textContent = 'Sin contadores registrados';
+          els.kpiOnline.textContent = '0';
+          els.kpiOffline.textContent = '0';
+          els.countersContainer.innerHTML = '<div class="empty">No hay contadores registrados.</div>';
+          els.counterSelect.innerHTML = '';
+          setStatus('Vacío', 'warn');
+          return;
+        }
+
+        els.counterSelect.innerHTML = countersCache.map(c =>
+          `<option value="${c.counter_index}">${escapeHtml(c.counter_name || 'Contador ' + c.counter_index)} (#${c.counter_index})</option>`
+        ).join('');
+
+        const rows = await Promise.all(countersCache.map(async c => {
+          try {
+            const latest = await fetchJson(`${base}/api/peak/device/${encodeURIComponent(deviceId)}?counter_index=${encodeURIComponent(c.counter_index)}`);
+            return latest.data;
+          } catch (err) {
+            return {
+              counter_index: c.counter_index,
+              counter_name: c.counter_name,
+              counter_type: c.counter_type,
+              slave_id: c.slave_id,
+              online: null,
+              counter_value: null,
+              fail_count: null,
+              visible_at: null
+            };
+          }
+        }));
+
+        const online = rows.filter(r => r.online === true).length;
+        const offline = rows.filter(r => r.online === false).length;
+        const deviceName = rows.find(r => r.device_name)?.device_name || '-';
+
+        els.kpiName.textContent = deviceName;
+        els.kpiOnline.textContent = online;
+        els.kpiOffline.textContent = offline;
+
+        els.countersContainer.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Index</th>
+                <th>Slave</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Estado</th>
+                <th>Fail Count</th>
+                <th>Última actualización</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${escapeHtml(r.counter_index)}</td>
+                  <td>${escapeHtml(r.slave_id ?? '-')}</td>
+                  <td>${escapeHtml(r.counter_name ?? '-')}</td>
+                  <td>${escapeHtml(r.counter_type ?? '-')}</td>
+                  <td>${escapeHtml(r.counter_value ?? '-')}</td>
+                  <td>
+                    <span class="status-pill ${r.online === true ? 'ok' : r.online === false ? 'bad' : 'warn'}">
+                      ${r.online === true ? 'Online' : r.online === false ? 'Offline' : 'Sin dato'}
+                    </span>
+                  </td>
+                  <td>${escapeHtml(r.fail_count ?? '-')}</td>
+                  <td>${escapeHtml(r.visible_at ? new Date(r.visible_at).toLocaleString() : '-')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        setStatus('Cargado', 'ok');
+      } catch (err) {
+        els.countersContainer.innerHTML = `<div class="empty">Error: ${escapeHtml(err.message)}</div>`;
+        setStatus('Error', 'bad');
+      }
+    }
+
+    async function loadHistory() {
+      const base = els.apiBase.value.trim().replace(/\/$/, '');
+      const deviceId = els.deviceId.value.trim();
+      const counterIndex = els.counterSelect.value;
+      const from = els.dateFrom.value;
+      const to = els.dateTo.value;
+
+      if (!deviceId || !counterIndex) {
+        alert('Carga contadores y selecciona uno.');
+        return;
+      }
+
+      els.historyContainer.innerHTML = '<div class="loading">Cargando histórico...</div>';
+
+      try {
+        const qs = new URLSearchParams({
+          device_id: deviceId,
+          counter_index: counterIndex,
+          from,
+          to
+        });
+
+        const data = await fetchJson(`${base}/api/peak/history?${qs.toString()}`);
+        const rows = data.data || [];
+
+        if (!rows.length) {
+          els.historyContainer.innerHTML = '<div class="empty">No hay histórico para ese rango.</div>';
+          return;
+        }
+
+        els.historyContainer.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Valor</th>
+                <th>Estado</th>
+                <th>Fail Count</th>
+                <th>Tipo</th>
+                <th>IP</th>
+                <th>RSSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${escapeHtml(r.visible_at ? new Date(r.visible_at).toLocaleString() : '-')}</td>
+                  <td>${escapeHtml(r.counter_value ?? '-')}</td>
+                  <td>${escapeHtml(r.online === true ? 'Online' : r.online === false ? 'Offline' : 'Sin dato')}</td>
+                  <td>${escapeHtml(r.fail_count ?? '-')}</td>
+                  <td>${escapeHtml(r.counter_type ?? '-')}</td>
+                  <td>${escapeHtml(r.ip ?? '-')}</td>
+                  <td>${escapeHtml(r.rssi ?? '-')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        els.historyContainer.innerHTML = `<div class="empty">Error: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    els.btnLoadCounters.addEventListener('click', loadCounters);
+    els.btnRefresh.addEventListener('click', loadCounters);
+    els.btnLoadHistory.addEventListener('click', loadHistory);
+  </script>
+</body>
+</html>
