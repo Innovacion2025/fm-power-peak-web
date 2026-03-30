@@ -605,108 +605,171 @@
   async function cargarHistorico(mostrarSpinner = true) {
     const desde = document.getElementById("dateFrom").value;
     const hasta = document.getElementById("dateTo").value;
-    if (!desde || !hasta) { mostrarToast("Seleccione el rango de fechas"); return; }
+  
+    if (!desde || !hasta) {
+      mostrarToast("Seleccione el rango de fechas");
+      return;
+    }
+  
     if (!countersCache.length) return;
-
+  
     if (mostrarSpinner) showLoading();
-
+  
     const activos = countersCache.filter(c => latestCache[c.counter_index]?.online === true);
-
+    const activosKeys = new Set(activos.map(c => String(c.counter_index)));
+  
+    // Eliminar cards de contadores que ya no están activos
+    Object.keys(chartInstances).forEach(key => {
+      if (!activosKeys.has(key)) {
+        try {
+          chartInstances[key].bar?.destroy();
+          chartInstances[key].line?.destroy();
+        } catch(e) {}
+  
+        delete chartInstances[key];
+  
+        const card = document.getElementById(`card-counter-${key}`);
+        if (card) card.remove();
+      }
+    });
+  
     if (!activos.length) {
       document.getElementById("chartsCol").innerHTML =
         `<div style="text-align:center;padding:30px;color:var(--text-faint);font-size:12px">No hay contadores activos para analizar.</div>`;
       if (mostrarSpinner) hideLoading();
       return;
     }
-
+  
+    // Si hay activos, quitar mensaje vacío
+    const chartsCol = document.getElementById("chartsCol");
+    if (chartsCol.innerText.includes("No hay contadores activos")) {
+      chartsCol.innerHTML = "";
+    }
+  
     const resultados = await Promise.all(activos.map(async c => {
       try {
-        const qs = new URLSearchParams({ device_id: deviceId, counter_index: String(c.counter_index), from: desde, to: hasta });
-        const r  = await fetch(`${API_BASE}/api/peak/history?${qs}&t=${Date.now()}`, { cache:"no-store" });
-        const j  = await r.json();
+        const qs = new URLSearchParams({
+          device_id: deviceId,
+          counter_index: String(c.counter_index),
+          from: desde,
+          to: hasta
+        });
+  
+        const r = await fetch(`${API_BASE}/api/peak/history?${qs}&t=${Date.now()}`, { cache:"no-store" });
+        const j = await r.json();
+  
         return { counter: c, rows: j?.data || [] };
-      } catch(e) { return { counter: c, rows: [] }; }
+      } catch(e) {
+        return { counter: c, rows: [] };
+      }
     }));
-
+  
     renderGraficas(resultados);
+  
     if (mostrarSpinner) hideLoading();
   }
 
   /* ── RENDER GRÁFICAS (sin destruir, solo actualizar datos) ── */
   function renderGraficas(resultados) {
-    const col = document.getElementById("chartsCol");
+  const col = document.getElementById("chartsCol");
 
-    resultados.forEach(({ counter, rows }) => {
-      const key   = String(counter.counter_index);
-      const serie = buildSerie(rows);
-      const latest= latestCache[counter.counter_index];
-      const stCls = latest?.online === true ? "sp-ok" : "sp-bad";
-      const stTxt = latest?.online === true ? "Online" : "Offline";
+  resultados.forEach(({ counter, rows }) => {
+    const key    = String(counter.counter_index);
+    const serie  = buildSerie(rows);
+    const latest = latestCache[counter.counter_index];
 
-      if (!chartInstances[key]) {
-        /* Crear card nueva */
-        const div = document.createElement("div");
-        div.className = "chart-card";
-        div.id = `card-counter-${key}`;
-        div.innerHTML = `
-          <div class="chart-card-header">
-            <div>
-              <div class="chart-title">${counter.counter_name || "Contador " + key}</div>
-              <div class="chart-subtitle">Slave ${counter.slave_id ?? "--"} · ${counter.counter_type ?? "--"}</div>
-            </div>
-            <span class="status-pill ${stCls}" id="st-${key}">${stTxt}</span>
+    const stCls = latest?.online === true ? "sp-ok" : latest?.online === false ? "sp-bad" : "sp-warn";
+    const stTxt = latest?.online === true ? "Online" : latest?.online === false ? "Offline" : "Sin dato";
+
+    if (!chartInstances[key]) {
+      const div = document.createElement("div");
+      div.className = "chart-card";
+      div.id = `card-counter-${key}`;
+      div.innerHTML = `
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-title">${counter.counter_name || "Contador " + key}</div>
+            <div class="chart-subtitle">Slave ${counter.slave_id ?? "--"} · ${formatearTipo(counter.counter_type)}</div>
           </div>
-          <div class="chart-pair">
-            <div>
-              <div class="chart-mini-title">Eventos por intervalo</div>
-              <div class="chart-body"><canvas id="bar-${key}" class="chart-canvas"></canvas></div>
-            </div>
-            <div>
-              <div class="chart-mini-title">Acumulado total</div>
-              <div class="chart-body"><canvas id="line-${key}" class="chart-canvas"></canvas></div>
-            </div>
+          <span class="status-pill ${stCls}" id="st-${key}">${stTxt}</span>
+        </div>
+        <div class="chart-pair">
+          <div>
+            <div class="chart-mini-title">Eventos por intervalo</div>
+            <div class="chart-body"><canvas id="bar-${key}" class="chart-canvas"></canvas></div>
           </div>
-        `;
-        col.appendChild(div);
+          <div>
+            <div class="chart-mini-title">Acumulado total</div>
+            <div class="chart-body"><canvas id="line-${key}" class="chart-canvas"></canvas></div>
+          </div>
+        </div>
+      `;
+      col.appendChild(div);
 
-        const labels = serie.map(s => s.label);
-        const deltas = serie.map(s => s.delta);
-        const acums  = serie.map(s => s.accumulated);
+      const labels = serie.map(s => s.label);
+      const deltas = serie.map(s => s.delta);
+      const acums  = serie.map(s => s.accumulated);
 
-        const barChart = new Chart(document.getElementById(`bar-${key}`).getContext("2d"), {
-          type: "bar",
-          data: { labels, datasets: [{ label:"Eventos", data: deltas, backgroundColor:"rgba(236,99,31,0.75)", borderColor:"rgba(236,99,31,1)", borderWidth:1, borderRadius:4 }] },
-          options: chartOpts("Eventos", false)
-        });
-        const lineChart = new Chart(document.getElementById(`line-${key}`).getContext("2d"), {
-          type: "line",
-          data: { labels, datasets: [{ label:"Acumulado", data: acums, borderColor:"#2D9CDB", backgroundColor:"rgba(45,156,219,0.08)", borderWidth:2, fill:true, stepped:true, pointRadius:0, tension:0 }] },
-          options: chartOpts("Acumulado", true)
-        });
-        chartInstances[key] = { bar: barChart, line: lineChart };
-      } else {
-        /* Actualizar sin parpadeo */
-        const labels = serie.map(s => s.label);
-        const deltas = serie.map(s => s.delta);
-        const acums  = serie.map(s => s.accumulated);
+      const barChart = new Chart(document.getElementById(`bar-${key}`).getContext("2d"), {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Eventos",
+            data: deltas,
+            backgroundColor: "rgba(236,99,31,0.75)",
+            borderColor: "rgba(236,99,31,1)",
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: chartOpts("Eventos", false)
+      });
 
-        const bc = chartInstances[key].bar;
-        bc.data.labels = labels;
-        bc.data.datasets[0].data = deltas;
-        bc.update("none");
+      const lineChart = new Chart(document.getElementById(`line-${key}`).getContext("2d"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Acumulado",
+            data: acums,
+            borderColor: "#2D9CDB",
+            backgroundColor: "rgba(45,156,219,0.08)",
+            borderWidth: 2,
+            fill: true,
+            stepped: true,
+            pointRadius: 0,
+            tension: 0
+          }]
+        },
+        options: chartOpts("Acumulado", true)
+      });
 
-        const lc = chartInstances[key].line;
-        lc.data.labels = labels;
-        lc.data.datasets[0].data = acums;
-        lc.update("none");
+      chartInstances[key] = { bar: barChart, line: lineChart };
+    } else {
+      const labels = serie.map(s => s.label);
+      const deltas = serie.map(s => s.delta);
+      const acums  = serie.map(s => s.accumulated);
 
-        /* Actualizar status pill */
-        const stEl = document.getElementById(`st-${key}`);
-        if (stEl) { stEl.className = `status-pill ${stCls}`; stEl.innerText = stTxt; }
-      }
-    });
-  }
+      const bc = chartInstances[key].bar;
+      bc.data.labels = labels;
+      bc.data.datasets[0].data = deltas;
+      bc.update("none");
 
+      const lc = chartInstances[key].line;
+      lc.data.labels = labels;
+      lc.data.datasets[0].data = acums;
+      lc.update("none");
+    }
+
+    // Actualizar SIEMPRE el badge de estado
+    const stEl = document.getElementById(`st-${key}`);
+    if (stEl) {
+      stEl.className = `status-pill ${stCls}`;
+      stEl.innerText = stTxt;
+    }
+  });
+}
   function buildSerie(rows) {
     return rows.map((row, i) => {
       const current  = Number(row.counter_value ?? 0);
