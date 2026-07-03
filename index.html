@@ -1278,7 +1278,7 @@
           to: hasta
         });
   
-        const r = await fetch(`${API_BASE}/api/peak/history?${qs}&t=${Date.now()}`, { cache:"no-store" });
+        const r = await fetch(`${API_BASE}/api/peak/save-reading?${qs}&t=${Date.now()}`, { cache:"no-store" });
         const j = await r.json();
   
         return { counter: c, rows: j?.data || [] };
@@ -1432,7 +1432,7 @@
     const desde = document.getElementById("csvFrom").value;
     const hasta = document.getElementById("csvTo").value;
     if (!desde || !hasta) { mostrarToast("Seleccione el rango de fechas para el CSV"); return; }
-    const url = `${API_BASE}/api/peak/history/export?device_id=${encodeURIComponent(deviceId)}&from=${encodeURIComponent(desde)}&to=${encodeURIComponent(hasta)}`;
+    const url = `${API_BASE}/api/peak/save-reading/export?device_id=${encodeURIComponent(deviceId)}&from=${encodeURIComponent(desde)}&to=${encodeURIComponent(hasta)}`;
     document.getElementById("csvSpinner").style.display = "flex";
     setTimeout(() => { window.location.href = url; }, 400);
     setTimeout(() => { document.getElementById("csvSpinner").style.display = "none"; }, 4000);
